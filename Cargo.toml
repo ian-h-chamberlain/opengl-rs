@@ -1,0 +1,9 @@
+[package]
+name = "opengl-rs"
+version = "0.1.0"
+authors = ["Ian Chamberlain <ian.h.chamberlain@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+sdl2 = "0.32.2"
+gl = "0.12.0"
