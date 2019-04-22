@@ -3,6 +3,8 @@ extern crate sdl2;
 
 use std::ffi::{CStr, CString};
 
+use sdl2::{keyboard::Keycode, event::Event};
+
 #[macro_use]
 mod util;
 mod types;
@@ -40,10 +42,14 @@ fn main() -> Result<(), String> {
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
         for event in event_pump.poll_iter() {
-            if let sdl2::event::Event::Quit { .. } = event {
-                break 'main;
+            match event {
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => break 'main,
+                _ => {} // TODO Handle user input
             }
-            // Handle user input
         }
 
         clear_screen();

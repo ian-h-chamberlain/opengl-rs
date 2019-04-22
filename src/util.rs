@@ -36,9 +36,9 @@ macro_rules! call_unsafe_outparam_fn {
 ///
 macro_rules! create_gl_object {
     ($create_fn:path, $get_fn:path, $get_info_log_fn:path, $status_enum:expr) => {{
+        #[allow(unused_unsafe)]
         // this is needed because we could be passed a safe function or closure
         // for any of the fn arguments
-        #[allow(unused_unsafe)]
         let id = unsafe { $create_fn() };
 
         #[allow(clippy::cast_lossless)]
@@ -46,29 +46,28 @@ macro_rules! create_gl_object {
             call_unsafe_outparam_fn!($get_fn, gl::FALSE as GLint, id, $status_enum) as GLboolean;
 
         if create_success != gl::TRUE {
+            println!("Error creating object {:?}", id);
             let len = call_unsafe_outparam_fn!($get_fn, 0, id, gl::INFO_LOG_LENGTH);
 
-            let error = util::space_cstring_from_size(len as usize);
+            println!("Error details length {:?}", len);
+            let error = $crate::util::space_cstring_from_size(len as usize);
 
             unsafe {
-                $get_info_log_fn(
-                    id,
-                    len,
-                    std::ptr::null_mut(),
-                    error.as_ptr() as *mut gl::types::GLchar,
-                );
+                $get_info_log_fn(id, len, std::ptr::null_mut(), error.as_ptr() as *mut _);
             }
 
             Err(error.to_string_lossy().into_owned())
         } else {
+            println!("Created object {:?}", id);
             Ok(id)
         }
     }};
 }
 
 pub fn space_cstring_from_size(len: usize) -> CString {
-    let mut buffer = vec![b' '; len + 1];
-    // null-terminate the CString
-    *buffer.last_mut().unwrap() = 0;
+    let mut buffer: Vec<u8> = Vec::with_capacity(len + 1);
+    // fill it with spaces
+    buffer.extend([b' '].iter().cycle().take(len));
+    // convert buffer to CString
     unsafe { CString::from_vec_unchecked(buffer) }
 }

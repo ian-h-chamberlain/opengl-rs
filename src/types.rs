@@ -2,8 +2,6 @@ extern crate gl;
 
 use std::ffi::CStr;
 
-use super::util;
-
 pub use gl::types::{GLboolean, GLchar, GLenum, GLfloat, GLint, GLsizei, GLuint};
 
 pub struct GLColor {
@@ -62,6 +60,8 @@ impl Shader {
             gl::COMPILE_STATUS
         )?;
 
+        println!("Created GL shader");
+
         Ok(Self { id })
     }
 }
@@ -92,6 +92,8 @@ impl Program {
             gl::GetProgramInfoLog,
             gl::LINK_STATUS
         )?;
+
+        println!("Created GL Program");
 
         for shader in shaders {
             unsafe { gl::AttachShader(id, shader.id()) };
