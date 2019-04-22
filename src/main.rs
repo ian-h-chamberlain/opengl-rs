@@ -1,14 +1,13 @@
 extern crate gl;
 extern crate sdl2;
 
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 
 #[macro_use]
 mod util;
-
 mod types;
 
-use types::{GLColor, GLRect, Shader};
+use types::{GLColor, GLRect, Program, Shader};
 
 const CLEAR_COLOR: GLColor = GLColor {
     r: 0.7,
@@ -28,28 +27,15 @@ fn main() -> Result<(), String> {
     let sdl = sdl2::init().unwrap();
     let video_subsystem = sdl.video().unwrap();
 
-    let window = video_subsystem
-        .window("OpenGL", VIEWPORT.width(), VIEWPORT.height())
-        .opengl()
-        .resizable()
-        .build()
-        .unwrap();
+    let (window, _opengl_context) = initialize_opengl(&video_subsystem);
 
-    let _opengl_context = window.gl_create_context().unwrap();
-    initialize_opengl(&video_subsystem);
+    let vert_shader =
+        Shader::vert_from_source(&CString::new(include_str!("data/triangle.vert")).unwrap())?;
+    let frag_shader =
+        Shader::frag_from_source(&CString::new(include_str!("data/triangle.frag")).unwrap())?;
 
-    let source_string = CString::new("foobar").unwrap();
-
-    let vert_shader = Shader::vert_from_source(&source_string)?;
-    let frag_shader = Shader::frag_from_source(&source_string)?;
-
-    let program_id = unsafe { gl::CreateProgram() };
-
-    unsafe {
-        gl::AttachShader(program_id, vert_shader.id());
-        gl::AttachShader(program_id, frag_shader.id());
-        gl::LinkProgram(program_id);
-    }
+    let gl_program = Program::from_shaders(&[vert_shader, frag_shader])?;
+    gl_program.set_used();
 
     let mut event_pump = sdl.event_pump().unwrap();
     'main: loop {
@@ -67,21 +53,37 @@ fn main() -> Result<(), String> {
     Ok(())
 }
 
-fn initialize_opengl(video: &sdl2::VideoSubsystem) {
+fn initialize_opengl(
+    video: &sdl2::VideoSubsystem,
+) -> (sdl2::video::Window, sdl2::video::GLContext) {
     let gl_attr = video.gl_attr();
 
     gl_attr.set_context_profile(sdl2::video::GLProfile::Core);
-    gl_attr.set_context_version(4, 5);
+    gl_attr.set_context_version(3, 3);
 
-    gl::load_with(|s| video.gl_get_proc_address(s) as *const std::os::raw::c_void);
+    println!("GL context version: {:?}", gl_attr.context_version());
+
+    let window = video
+        .window("OpenGL", VIEWPORT.width(), VIEWPORT.height())
+        .opengl()
+        .resizable()
+        .build()
+        .unwrap();
+
+    let opengl_context = window.gl_create_context().unwrap();
+    gl::load_with(|name| video.gl_get_proc_address(name) as *const _);
 
     unsafe {
         // Set the viewport to match the window
         gl::Viewport(VIEWPORT.x0, VIEWPORT.y0, VIEWPORT.x1, VIEWPORT.y1);
-
         // Set GL "clear" color
         gl::ClearColor(CLEAR_COLOR.r, CLEAR_COLOR.g, CLEAR_COLOR.b, CLEAR_COLOR.a);
     }
+
+    let version = unsafe { CStr::from_ptr(gl::GetString(gl::VERSION) as *const _) };
+    println!("OpenGL version string: {}", version.to_str().unwrap());
+
+    (window, opengl_context)
 }
 
 fn clear_screen() {
