@@ -3,7 +3,7 @@ extern crate sdl2;
 
 use std::ffi::{CStr, CString};
 
-use sdl2::{keyboard::Keycode, event::Event};
+use sdl2::{event::Event, keyboard::Keycode};
 
 #[macro_use]
 mod util;

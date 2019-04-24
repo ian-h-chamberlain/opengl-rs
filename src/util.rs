@@ -1,5 +1,3 @@
-use std::ffi::CString;
-
 /// Call a C-style function which has an outparam pointer. This is a little
 /// wrapper macro to declare a result with a default value, then call an unsafe
 /// function which populates the value.
@@ -36,38 +34,32 @@ macro_rules! call_unsafe_outparam_fn {
 ///
 macro_rules! create_gl_object {
     ($create_fn:path, $get_fn:path, $get_info_log_fn:path, $status_enum:expr) => {{
+        use std::ffi::CString;
+
+        // we could be passed a safe function or closure which creates the object
         #[allow(unused_unsafe)]
-        // this is needed because we could be passed a safe function or closure
-        // for any of the fn arguments
         let id = unsafe { $create_fn() };
 
-        #[allow(clippy::cast_lossless)]
-        let create_success =
-            call_unsafe_outparam_fn!($get_fn, gl::FALSE as GLint, id, $status_enum) as GLboolean;
+        let create_success = call_unsafe_outparam_fn!($get_fn, -1, id, $status_enum);
+        assert_ne!(-1, create_success);
 
-        if create_success != gl::TRUE {
-            println!("Error creating object {:?}", id);
-            let len = call_unsafe_outparam_fn!($get_fn, 0, id, gl::INFO_LOG_LENGTH);
+        let create_success = create_success as GLboolean;
+        if create_success == gl::TRUE {
+            eprintln!("`{}` returned success; id {:?}", stringify!($get_fn), id);
+            Ok(id)
+        } else {
+            eprintln!("Error creating object with id {:?}", id);
+            let len = call_unsafe_outparam_fn!($get_fn, -1, id, gl::INFO_LOG_LENGTH);
+            assert!(len >= 0);
 
-            println!("Error details length {:?}", len);
-            let error = $crate::util::space_cstring_from_size(len as usize);
+            let error = unsafe { CString::from_vec_unchecked(vec![b' '; len as usize]) };
 
+            #[allow(unused_unsafe)]
             unsafe {
                 $get_info_log_fn(id, len, std::ptr::null_mut(), error.as_ptr() as *mut _);
             }
 
             Err(error.to_string_lossy().into_owned())
-        } else {
-            println!("Created object {:?}", id);
-            Ok(id)
         }
     }};
-}
-
-pub fn space_cstring_from_size(len: usize) -> CString {
-    let mut buffer: Vec<u8> = Vec::with_capacity(len + 1);
-    // fill it with spaces
-    buffer.extend([b' '].iter().cycle().take(len));
-    // convert buffer to CString
-    unsafe { CString::from_vec_unchecked(buffer) }
 }

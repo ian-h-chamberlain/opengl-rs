@@ -60,7 +60,7 @@ impl Shader {
             gl::COMPILE_STATUS
         )?;
 
-        println!("Created GL shader");
+        eprintln!("Created GL shader");
 
         Ok(Self { id })
     }
@@ -86,20 +86,24 @@ impl Program {
     }
 
     pub fn from_shaders(shaders: &[Shader]) -> Result<Self, String> {
+        let create_program = || {
+            let id = unsafe { gl::CreateProgram() };
+            eprintln!("Created GL program");
+            for shader in shaders {
+                unsafe { gl::AttachShader(id, shader.id()) };
+            }
+            eprintln!("Attached all shaders");
+            unsafe { gl::LinkProgram(id) };
+            eprintln!("Linked program");
+            id
+        };
+
         let id = create_gl_object!(
-            gl::CreateProgram,
+            create_program,
             gl::GetProgramiv,
             gl::GetProgramInfoLog,
             gl::LINK_STATUS
         )?;
-
-        println!("Created GL Program");
-
-        for shader in shaders {
-            unsafe { gl::AttachShader(id, shader.id()) };
-        }
-
-        unsafe { gl::LinkProgram(id) };
 
         Ok(Self { id })
     }
